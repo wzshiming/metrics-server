@@ -14,6 +14,9 @@ BUILD_DATE:=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 ALL_ARCHITECTURES=amd64 arm arm64 ppc64le s390x
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
+BINARIES_ARCHITECTURES=amd64 arm64
+BINARIES_PLATFORMS=linux darwin windows
+
 # Tools versions
 # --------------
 GOLANGCI_VERSION:=1.53.2
@@ -95,6 +98,19 @@ release-manifests:
 	kubectl kustomize manifests/overlays/release-ha > _output/high-availability.yaml
 	kubectl kustomize manifests/overlays/release-ha-1.21+ > _output/high-availability-1.21+.yaml
 
+.PHONY: release-binaries
+release-binaries:
+	@mkdir -p _output
+	@for arch in $(BINARIES_ARCHITECTURES); do \
+		for platform in $(BINARIES_PLATFORMS); do \
+		    binary_name=metrics-server-$${platform}-$${arch}; \
+		  	if [ "$${platform}" = "windows" ]; then \
+		  	  	binary_name=$${binary_name}.exe; \
+			fi; \
+			GOARCH=$${arch} GOOS=$${platform} CGO_ENABLED=0 \
+			  go build -mod=readonly -ldflags "$(LDFLAGS)" -o $(REPO_DIR)/_output/$${binary_name} sigs.k8s.io/metrics-server/cmd/metrics-server; \
+		done; \
+	done
 
 # fuzz tests
 # ----------
